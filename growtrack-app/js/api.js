@@ -1,7 +1,5 @@
 const API = {
-  // 生产环境：替换为你的 Railway 后端地址
-  // 本地开发：http://localhost:3001/api
-  baseURL: 'http://localhost:3001/api',
+  baseURL: 'https://growtrack-production-ec97.up.railway.app/api',
 
   getToken() {
     return localStorage.getItem('growtrack_token');
