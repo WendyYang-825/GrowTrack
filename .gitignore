@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Environment
+.env
+.env.local
+.env.production
+*.env
+
+# Database
+*.db
+*.db-journal
+dev.db
+prisma/dev.db
+
+# Build output
+dist/
+build/
+.next/
+.vercel/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Railway
+.railway/
+
+# Prisma
+prisma/migrations/dev/
+
+# Temporary
+tmp/
+temp/
