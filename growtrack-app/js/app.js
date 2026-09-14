@@ -2,6 +2,7 @@ const App = {
   charts: [],
   timerInterval: null,
   timerSeconds: 5075,
+  useMock: !API.getToken(), // 没有 Token 时用 Mock 模式
 
   init() {
     document.getElementById('menuBtn').addEventListener('click', () => {
@@ -14,6 +15,12 @@ const App = {
       document.getElementById('overlay').classList.remove('overlay--visible');
     });
 
+    // Auth routes
+    Router.register('login', () => this.renderLogin());
+    Router.register('register', () => this.renderRegister());
+    Router.register('logout', () => this.handleLogout());
+
+    // App routes
     Router.register('dashboard', () => this.renderDashboard());
     Router.register('tracker', () => this.renderTracker());
     Router.register('dimensions', () => this.renderDimensions());
@@ -23,7 +30,39 @@ const App = {
     Router.register('review', () => this.renderReview());
     Router.register('habits', () => this.renderHabits());
 
+    this.updateUserUI();
     Router.init();
+  },
+
+  updateUserUI() {
+    const user = API.getUser();
+    const sidebarFooter = document.querySelector('.sidebar__footer');
+    if (user && sidebarFooter && !document.querySelector('.sidebar__user')) {
+      const userDiv = document.createElement('div');
+      userDiv.className = 'sidebar__user';
+      const initial = user.nickname ? user.nickname[0].toUpperCase() : 'U';
+      userDiv.innerHTML = `
+        <div class="sidebar__user-avatar">${initial}</div>
+        <div class="sidebar__user-info">
+          <div class="sidebar__user-name">${user.nickname || '用户'}</div>
+          <div class="sidebar__user-email">${user.email || ''}</div>
+        </div>
+        <div class="sidebar__logout" title="退出登录" onclick="App.handleLogout()">⎋</div>
+      `;
+      sidebarFooter.before(userDiv);
+    }
+  },
+
+  async handleLogout() {
+    if (API.getToken()) {
+      try { await API.logout(); } catch(e) {}
+    }
+    API.clearTokens();
+    this.useMock = true;
+    // 移除用户信息
+    const userEl = document.querySelector('.sidebar__user');
+    if (userEl) userEl.remove();
+    window.location.hash = '#/login';
   },
 
   clearCharts() {
@@ -791,6 +830,147 @@ const App = {
       habit.streak = habit.doneToday ? habit.streak + 1 : Math.max(0, habit.streak - 1);
       this.renderHabits();
     }
+  },
+
+  // ===== Login Page =====
+  renderLogin() {
+    this.clearCharts();
+    document.getElementById('sidebar').style.display = 'none';
+    document.getElementById('mobileHeader').style.display = 'none';
+    document.getElementById('mainContent').style.marginLeft = '0';
+
+    this.el(`
+      <div class="auth-page">
+        <div class="auth-card">
+          <div class="auth-card__logo">
+            <div class="auth-card__logo-icon">G</div>
+            <div class="auth-card__title">欢迎回来</div>
+            <div class="auth-card__subtitle">登录 GrowTrack 继续你的成长</div>
+          </div>
+          <form class="auth-form" id="loginForm">
+            <div class="auth-form__field">
+              <label class="auth-form__label">邮箱</label>
+              <input type="email" class="auth-form__input" id="loginEmail" placeholder="your@email.com" required>
+              <div class="auth-form__error" id="emailError" style="display:none;"></div>
+            </div>
+            <div class="auth-form__field">
+              <label class="auth-form__label">密码</label>
+              <input type="password" class="auth-form__input" id="loginPassword" placeholder="••••••••" required>
+              <div class="auth-form__error" id="passwordError" style="display:none;"></div>
+            </div>
+            <button type="submit" class="auth-form__btn" id="loginBtn">登录</button>
+          </form>
+          <div class="auth-card__footer">
+            还没有账号？<a onclick="window.location.hash='#/register'">立即注册</a>
+          </div>
+          <div class="auth-card__footer" style="margin-top:12px;font-size:11px;">
+            <a onclick="App.useMock=true;window.location.hash='#/dashboard'" style="color:var(--ink-muted);">→ 用演示模式体验</a>
+          </div>
+        </div>
+      </div>
+    `);
+
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('loginBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="loading-spinner"></span>';
+
+      const email = document.getElementById('loginEmail').value;
+      const password = document.getElementById('loginPassword').value;
+
+      try {
+        const res = await API.login(email, password);
+        if (res.accessToken) {
+          this.useMock = false;
+          this.updateUserUI();
+          window.location.hash = '#/dashboard';
+        } else {
+          const errEl = document.getElementById('passwordError');
+          errEl.textContent = res.error || '登录失败';
+          errEl.style.display = 'block';
+          btn.disabled = false;
+          btn.textContent = '登录';
+        }
+      } catch (err) {
+        const errEl = document.getElementById('passwordError');
+        errEl.textContent = '网络错误，请稍后重试';
+        errEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = '登录';
+      }
+    });
+  },
+
+  // ===== Register Page =====
+  renderRegister() {
+    this.clearCharts();
+    document.getElementById('sidebar').style.display = 'none';
+    document.getElementById('mobileHeader').style.display = 'none';
+    document.getElementById('mainContent').style.marginLeft = '0';
+
+    this.el(`
+      <div class="auth-page">
+        <div class="auth-card">
+          <div class="auth-card__logo">
+            <div class="auth-card__logo-icon">G</div>
+            <div class="auth-card__title">创建账号</div>
+            <div class="auth-card__subtitle">开始你的量化成长之旅</div>
+          </div>
+          <form class="auth-form" id="registerForm">
+            <div class="auth-form__field">
+              <label class="auth-form__label">昵称</label>
+              <input type="text" class="auth-form__input" id="regNickname" placeholder="你的昵称" required>
+            </div>
+            <div class="auth-form__field">
+              <label class="auth-form__label">邮箱</label>
+              <input type="email" class="auth-form__input" id="regEmail" placeholder="your@email.com" required>
+            </div>
+            <div class="auth-form__field">
+              <label class="auth-form__label">密码（至少6位）</label>
+              <input type="password" class="auth-form__input" id="regPassword" placeholder="••••••••" required minlength="6">
+            </div>
+            <button type="submit" class="auth-form__btn" id="regBtn">创建账号</button>
+            <div class="auth-form__error" id="regError" style="text-align:center;margin-top:8px;display:none;"></div>
+          </form>
+          <div class="auth-card__footer">
+            已有账号？<a onclick="window.location.hash='#/login'">立即登录</a>
+          </div>
+        </div>
+      </div>
+    `);
+
+    document.getElementById('registerForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('regBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="loading-spinner"></span>';
+
+      const nickname = document.getElementById('regNickname').value;
+      const email = document.getElementById('regEmail').value;
+      const password = document.getElementById('regPassword').value;
+
+      try {
+        const res = await API.register(email, password, nickname);
+        if (res.accessToken) {
+          this.useMock = false;
+          this.updateUserUI();
+          window.location.hash = '#/dashboard';
+        } else {
+          const errEl = document.getElementById('regError');
+          errEl.textContent = res.error || '注册失败';
+          errEl.style.display = 'block';
+          btn.disabled = false;
+          btn.textContent = '创建账号';
+        }
+      } catch (err) {
+        const errEl = document.getElementById('regError');
+        errEl.textContent = '网络错误，请稍后重试';
+        errEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = '创建账号';
+      }
+    });
   },
 };
 
